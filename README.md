@@ -1,5 +1,9 @@
 # DICOM Anonymizer
-This script allows automated anonymizing of echocardiogram DICOM files. Scrubs all private health information stored in metadata as well as blacks out the top and sides to remove private information listed in the banner. 
+This script allows automated anonymizing of echocardiogram DICOM files. Scrubs all private health information stored in metadata as well as blacks out the top and sides to remove private information listed in the banner. This repo contains no real private health information, and test files are simply for demo.
+
+**********WARNING: DO NOT RUN SCRIPT ON NON-SECURE SERVER OR NON-ENCRYPTED LOCAL DESKTOP***********
+
+Use script with caution and ALWAYS MANUALLY ENSURE THAT ALL PHI HAS BEEN ZERO'ED OUT.
 
 ## Getting Started
 ### Downloading Python
@@ -94,22 +98,20 @@ $ pip install -r requirements.txt
 ```
 
 ## Anonymizing DICOMS
-Place DICOMs to be anonymized in the `/raw_dicoms` folder. The name of the files MUST NOT have private information in it! The script will name the anonymized files based off of the original file name. Anonymized DICOMS will appear in the `/anonymized_dicoms` folder. The anonymized files will have all metadata containing private health information removed. The patient ID will be changed from the MRN to an anonymized patient identifier specified in `name_map_demo.csv`. `name_map_demo.csv` must be formatted to have two columns, one with MRNs and another with the new anonymized patient specific identifier. Once everything is set up, simply type in 
+Place DICOMs to be anonymized in the `/raw_dicoms` folder. The name of the files MUST NOT have private information in it! The script will name the anonymized files based off of the original file name. Anonymized DICOMS will appear in the `/anonymized_dicoms` folder. The anonymized files will have all metadata containing private health information removed. The patient ID will be changed from the MRN to an anonymized patient identifier specified in a csv file. The csv file must be formatted to have two columns, one with MRNs and another with the new anonymized patient specific identifier. You will specify the filename of this csv file in the `--mrn-filename` flag argument. You will also need to specify the `--phi_location` flag, which specifies where the private health information is listed. Can be `top` or `none`. Optional flags are `-m` which enables multiprocessing (default is True), and `-s` which sorts dicoms by REDCap ID. Once everything is set up, simply type in 
 ```bash
-$ python anonymize.py 
+$ python anonymize.py --mrn-filename=name_map.csv --phi_location=top 
 ```
 Example output:
 ```bash
-Anonymizing 6i.dcm ...
+Anonymizing DICOM_example.dcm ...
 Saving...
-6i.dcm complete!
+6a.dcm complete!
 3.4569029808044434 seconds to run
 ```
-CHECK TO SEE IF ALL PATIENT INFORMATION HAS BEEN BLACKED OUT. If not, open `anonymize.py` and change the variables for the 2D mask to appropriate values.
+CHECK TO SEE IF ALL PATIENT INFORMATION HAS BEEN BLACKED OUT (ZERO'ED). If not, open `anonymize.py` and change the variables for the 2D mask to appropriate values.
 
-Test DICOMS that go with the `name_map.csv` file can be downloaded here for a test run: https://drive.google.com/drive/folders/1XgdIY1ZRzWjuWjXZbwSB_DIo5Hi5uKBD?usp=sharing
 
-Make sure to delete `blank.dcm` placeholder files before running the script on real DICOMS! 
 
 
 

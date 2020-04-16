@@ -149,7 +149,7 @@ def start_program(PHI_loc, multiprocess, sort_echos, mrn_redcap_filename):
 	#PHI_loc = 'none' #set which mask to use
 	#multiprocess = True #turns on multiprocessing
 	#sort_echos = True #sorts echos by redcap ID in destination folder
-	#mrn_redcap_filename = 'MRN-REDCap_test.csv' #set this to the csv with MRN to REDCap mapping
+	#mrn_redcap_filename = 'name_map.csv' #set this to the csv with MRN to REDCap mapping
 	#####################
 
 	print("Using mode: " + PHI_loc)

@@ -158,11 +158,6 @@ def start_program(PHI_loc, multiprocess, sort_echos, mrn_redcap_filename):
 	else:
 		print('Multiprocessing mode OFF')
 
-	if anonymize_bool:
-		print("Anonymizing ON")
-	else:
-		print("Anonymizing OFF")
-
 	if sort_echos:
 		print("Sorting echos ON")
 	else:
@@ -194,21 +189,20 @@ def start_program(PHI_loc, multiprocess, sort_echos, mrn_redcap_filename):
 				counter += 1
 
 	#Starts a multiprocessing pool and start a new process for each dicom file when a CPU becomes avaialable
-	if anonymize_bool:
-		p = multiprocessing.Pool()
-		filenames = os.listdir(dcm_direc)
+	p = multiprocessing.Pool()
+	filenames = os.listdir(dcm_direc)
 
-		for f in filenames:
-			if f[-3:] == 'dcm':
-				if multiprocess:
-					p.apply_async(anonymize_all,[f, PHI_loc])
-				else:
-					print('NOT MULTIPROCESSING')
-					anonymize_all(f, PHI_loc)
+	for f in filenames:
+		if f[-3:] == 'dcm':
+			if multiprocess:
+				p.apply_async(anonymize_all,[f, PHI_loc])
 			else:
-				continue
-		p.close()
-		p.join()
+				print('NOT MULTIPROCESSING')
+				anonymize_all(f, PHI_loc)
+		else:
+			continue
+	p.close()
+	p.join()
 
 	#Print statement for time taken to compute
 	print(str(time.time() - start) + ' seconds to run')

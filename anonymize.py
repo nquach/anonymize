@@ -16,6 +16,7 @@ import csv
 from shutil import move
 from imageio import imsave
 import argparse
+import pdb
 
 def safe_makedir(path):
 	if not os.path.exists(path):
@@ -74,7 +75,11 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 	ds.PerformedProcedureStepStartTime = 'NA'
 	ds.PerformedProcedureStepID = 'NA'
 	ds.StudyID = 'NA'
-
+	ds.PatientAddress = 'NA'
+	ds.ReviewerName = 'NA'
+	ds.EthnicGroup = 'NA'
+	ds.PatientTelephoneNumbers = 'NA'
+	ds.OtherPatientIDs = 'NA'
 	#Note that ds.pixel_array has shape (frames, rows, cols, channel), though channels is option
 	#ds.pixel_array has type uint8. Typecast accordingly!
 
@@ -119,20 +124,24 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 	dcm.filewriter.write_file(anon_path, ds)
 
 
-def anonymize_all(filename, PHI_loc):
+def anonymize_all(filename, PHI_loc, name_dict):
+	root_direc = os.getcwd()
+	dcm_direc = os.path.join(root_direc, 'raw_dicoms')
+	anon_direc = os.path.join(root_direc, 'anonymized_dicoms')
 	ds = dcm.dcmread(os.path.join(dcm_direc, filename))
+
 	if ds.file_meta.TransferSyntaxUID.is_compressed is True:
 		ds.decompress()
 
 	MRN = ds.PatientID
 	MRN = MRN.strip()
 	redcap = name_dict[MRN]
-	
+
 	if filename[-3:] != 'dcm':
 		anon_path = os.path.join(anon_direc, 'anon_' + filename + '.dcm')
 	else:
 		anon_path = os.path.join(anon_direc, 'anon_' + filename)
-
+		
 	print('Anonymizing ' + filename + ' ...')
 	anonymize(ds, anon_path, redcap, PHI_loc)
 	print(filename + ' complete!')
@@ -187,7 +196,6 @@ def start_program(PHI_loc, multiprocess, sort_echos, mrn_redcap_filename):
 					name_dict[MRN] = new_name
 				line = fp.readline()
 				counter += 1
-
 	#Starts a multiprocessing pool and start a new process for each dicom file when a CPU becomes avaialable
 	p = multiprocessing.Pool()
 	filenames = os.listdir(dcm_direc)
@@ -195,7 +203,7 @@ def start_program(PHI_loc, multiprocess, sort_echos, mrn_redcap_filename):
 	for f in filenames:
 		if f[-3:] == 'dcm':
 			if multiprocess:
-				p.apply_async(anonymize_all,[f, PHI_loc])
+				p.apply_async(anonymize_all,[f, PHI_loc, name_dict])
 			else:
 				print('NOT MULTIPROCESSING')
 				anonymize_all(f, PHI_loc)

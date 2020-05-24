@@ -54,16 +54,15 @@ def imresize(arr, shape):
     arr = arr.astype(np.uint8)
     return np.array(Image.fromarray(arr).resize(shape))
 
-
 def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 	ds.InstanceCreationDate = 'NA'
 	ds.InstanceCreationTime = 'NA'
-	ds.StudyDate = 'NA'
-	ds.SeriesDate = 'NA'
+	#ds.StudyDate = 'NA'
+	#ds.SeriesDate = 'NA'
 	ds.ContentDate = 'NA'
 	ds.AcquisitionDateTime = 'NA'
-	ds.StudyTime = 'NA'
-	ds.SeriesTime = 'NA'
+	#ds.StudyTime = 'NA'
+	#ds.SeriesTime = 'NA'
 	ds.AccessionNumber = 'NA'
 	ds.ReferringPhysicianName = 'NA'
 	ds.PerformingPhysicianName = 'NA'
@@ -82,11 +81,10 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 	ds.OtherPatientIDs = 'NA'
 	#Note that ds.pixel_array has shape (frames, rows, cols, channel), though channels is option
 	#ds.pixel_array has type uint8. Typecast accordingly!
-
 	mask = np.ones(ds.pixel_array.shape[1:3], dtype=np.uint8)
 
 	###GENERATE 2D MASKS HERE### (im sorry there are lots of magic numbers)
-	if PHI_loc == 'top':
+	if PHI_loc == 'top': #default for Phillips if there is a banner at the top
 		crop_pixels = int((60/600)*ds.pixel_array.shape[1]) 
 		mask[:,:crop_pixels] = 0 #Crop the top
 		UpperRight = np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(330*ds.pixel_array.shape[2]/800), dtype=np.uint8)
@@ -94,10 +92,27 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 		LowerRight = np.flipud(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(619*ds.pixel_array.shape[2]/800), dtype=np.uint8))
 		mask = mask * UpperRight * UpperLeft * LowerRight
 
-	elif PHI_loc == 'none':
+	elif PHI_loc == 'no_top': #default for Phillips if there is no banner at the top
 		UpperRight = np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(347*ds.pixel_array.shape[2]/800), dtype=np.uint8)
 		UpperLeft = np.fliplr(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(300*ds.pixel_array.shape[2]/800), dtype=np.uint8))
 		LowerRight = np.flipud(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(700*ds.pixel_array.shape[2]/800), dtype=np.uint8))
+		mask = mask * UpperRight * UpperLeft * LowerRight
+
+	elif PHI_loc == 'none':
+		print('Saving...')
+		dcm.filewriter.write_file(anon_path, ds)
+		return
+
+	elif PHI_loc == 'spectrum_offaxis': #use if the echo is off axis for Octave echoes
+		UpperRight = np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(455*ds.pixel_array.shape[2]/636), dtype=np.uint8)
+		UpperLeft = np.fliplr(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(455*ds.pixel_array.shape[2]/636), dtype=np.uint8))
+		LowerRight = np.flipud(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(936*ds.pixel_array.shape[2]/1016), dtype=np.uint8))
+		mask = mask * UpperRight * UpperLeft * LowerRight
+
+	elif PHI_loc == 'spectrum_high': #default for Octave echoes
+		UpperRight = np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(318*ds.pixel_array.shape[2]/636), dtype=np.uint8)
+		UpperLeft = np.fliplr(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(318*ds.pixel_array.shape[2]/636), dtype=np.uint8))
+		LowerRight = np.flipud(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(580*ds.pixel_array.shape[2]/636), dtype=np.uint8))
 		mask = mask * UpperRight * UpperLeft * LowerRight
 	else:
 		print(PHI_loc, 'is not a valid value for argument PHI_loc!')
@@ -118,9 +133,11 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 	else:
 		print('NOT A TIME SERIES! Skipping...')
 		return
+	
 
 	print('Saving...')
 	ds.PixelData = newarr.tobytes()
+	
 	dcm.filewriter.write_file(anon_path, ds)
 
 
@@ -130,18 +147,22 @@ def anonymize_all(filename, PHI_loc, name_dict):
 	anon_direc = os.path.join(root_direc, 'anonymized_dicoms')
 	ds = dcm.dcmread(os.path.join(dcm_direc, filename))
 
+
 	if ds.file_meta.TransferSyntaxUID.is_compressed is True:
 		ds.decompress()
 
 	MRN = ds.PatientID
 	MRN = MRN.strip()
+	if MRN not in name_dict:
+		print('MRN ' + MRN + " is not a valid value in mapping")
+		return
 	redcap = name_dict[MRN]
 
 	if filename[-3:] != 'dcm':
 		anon_path = os.path.join(anon_direc, 'anon_' + filename + '.dcm')
 	else:
 		anon_path = os.path.join(anon_direc, 'anon_' + filename)
-		
+	
 	print('Anonymizing ' + filename + ' ...')
 	anonymize(ds, anon_path, redcap, PHI_loc)
 	print(filename + ' complete!')
@@ -162,7 +183,7 @@ def start_program(PHI_loc, multiprocess, sort_echos, mrn_redcap_filename):
 	#####################
 
 	print("Using mode: " + PHI_loc)
-	if multiprocess == 'True':
+	if multiprocess:
 		print('Multiprocessing mode ON')
 	else:
 		print('Multiprocessing mode OFF')
@@ -217,7 +238,7 @@ def start_program(PHI_loc, multiprocess, sort_echos, mrn_redcap_filename):
 
 	#############################################
 	#This part sorts anonymized echos by REDCAP ID
-	if sort_echos == 'True':
+	if sort_echos:
 		dicompath = anon_direc
 
 		bad_file_list = []
@@ -264,19 +285,21 @@ if __name__ == '__main__':
 
         description="This is the Hiesinger Lab DICOM anonymizer script \
                       WARNING: Working directory must have a 'raw_dicoms' and 'anonymized_dicoms' for this to work.\
-                      Usage is 'python anonymize.py <phi_location> <mrn_filename>'",
+                      Usage is 'python anonymize.py --phi_loc=<phi_location> --mrn=<mrn_filename> [-m -s]'",
 
-        epilog="Version 1.2; Created by Nick Quach (almost entirely) and Rohan Shad, MD"
+        epilog="Version 1.3; Created by Nick Quach (almost entirely) and Rohan Shad, MD"
 
     )
 
-	parser.add_argument("phi_location", help="The location where ECHO files have hardcoded PHI. Either 'none' or 'top'.",type=str)
-	parser.add_argument("-m", metavar='\b', help="Enable / Disable multicore processing. Default is set to TRUE.",type=str, required=False, default='True')
-	parser.add_argument("-s", metavar='\b', help="Sorts anonymized ECHOs by REDCAP ID. Default is set to TRUE", type=str, required=False, default='True')
-	parser.add_argument("mrn_filename", help="Name of the master key file with MRN and study IDs (include the .csv bit)", type=str)
+	parser.add_argument("-l", "--phi_loc", required=True, help="The location where ECHO files have hardcoded PHI. Either 'none' or 'top'.")
+	parser.add_argument("-m", "--multiprocess", action='store_true', help="Enable / Disable multicore processing.")
+	parser.add_argument("-s", "--sort", action='store_true', help="Sorts anonymized ECHOs by REDCAP ID and saves first img of study. Default is set to TRUE")
+	parser.add_argument("-f", "--mrn", required=True, help="Name of the master key file with MRN and study IDs (include the .csv bit)")
    
 
-	args = parser.parse_args()
-	start_program(args.phi_location, args.m, args.s, args.mrn_filename)
+	args = vars(parser.parse_args())
+	print(args)
+
+	start_program(args['phi_loc'], args['multiprocess'], args['sort'], args['mrn'])
 
 

@@ -1,11 +1,21 @@
 '''
 Created by Nicolas Quach, July 16 2019
+Updated 05/28/20: v1.4 
+
 Script to anonymize DICOM files. Scrubs metadata of private health information
 and blacks out the top banner containing the patient's name/information.
 
-Updated 03/22/19: Blacks out all information on the sides too
-
 Need to adjust the blackout mask accordingly. The mask scales to input dimensions.
+
+By default, all masks except for 'none' black out the areas not in the bounding box
+Currently support masks preset (specified by arg --phi_loc flag):
+'top' = preset for Phillips/GE with banner at the top
+'no_top' = preset for Phillips/GE with no banner at the top
+'none' = doesnt apply a mask (no bounding box either)
+'boundingbox' = just applies bounding box
+'spectrum_high' = preset for Octave with a normal scanning sector
+'spectrum_offaxis' = preset for Octave with tilted scanning sector. 
+
 '''
 import os
 import numpy as np
@@ -83,9 +93,27 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 	#ds.pixel_array has type uint8. Typecast accordingly!
 	mask = np.ones(ds.pixel_array.shape[1:3], dtype=np.uint8)
 
+	#Create bounding box if pixel coordinates are available
+	try:
+		data = ds[0x0018,0x6011]
+		data = data[0]
+		Y0 = data[0x0018,0x601A].value
+		Y1 = data[0x0018,0x601E].value
+		X0 = data[0x0018,0x6018].value
+		X1 = data[0x0018,0x601C].value
+	except:
+		print("Pixel coordinates are not available!")
+		pass
+
+	#create bounding box. black out pixels outside of box
+	mask[:Y0, :] = 0
+	mask[:, :X0] = 0
+	mask[Y1:, :] = 0
+	mask[:, X1:] = 0
+
 	###GENERATE 2D MASKS HERE### (im sorry there are lots of magic numbers)
 	if PHI_loc == 'top': #default for Phillips if there is a banner at the top
-		crop_pixels = int((60/600)*ds.pixel_array.shape[1]) 
+		#crop_pixels = int((60/600)*ds.pixel_array.shape[1]) 
 		mask[:,:crop_pixels] = 0 #Crop the top
 		UpperRight = np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(330*ds.pixel_array.shape[2]/800), dtype=np.uint8)
 		UpperLeft = np.fliplr(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(260*ds.pixel_array.shape[2]/800), dtype=np.uint8))
@@ -98,10 +126,13 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 		LowerRight = np.flipud(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(700*ds.pixel_array.shape[2]/800), dtype=np.uint8))
 		mask = mask * UpperRight * UpperLeft * LowerRight
 
-	elif PHI_loc == 'none':
+	elif PHI_loc == 'none': #literally applies NO MASK
 		print('Saving...')
 		dcm.filewriter.write_file(anon_path, ds)
 		return
+
+	elif PHI_loc == 'boundingbox': #blacks out all pixels outside of the bounding box define by pixel coordinates in metadata
+		pass
 
 	elif PHI_loc == 'spectrum_offaxis': #use if the echo is off axis for Octave echoes
 		UpperRight = np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(455*ds.pixel_array.shape[2]/636), dtype=np.uint8)
@@ -227,7 +258,7 @@ def start_program(PHI_loc, multiprocess, sort_echos, mrn_redcap_filename):
 				p.apply_async(anonymize_all,[f, PHI_loc, name_dict])
 			else:
 				print('NOT MULTIPROCESSING')
-				anonymize_all(f, PHI_loc)
+				anonymize_all(f, PHI_loc, name_dict)
 		else:
 			continue
 	p.close()
@@ -287,7 +318,7 @@ if __name__ == '__main__':
                       WARNING: Working directory must have a 'raw_dicoms' and 'anonymized_dicoms' for this to work.\
                       Usage is 'python anonymize.py --phi_loc=<phi_location> --mrn=<mrn_filename> [-m -s]'",
 
-        epilog="Version 1.3; Created by Nick Quach (almost entirely) and Rohan Shad, MD"
+        epilog="Version 1.4; Created by Nick Quach (almost entirely) and Rohan Shad, MD"
 
     )
 

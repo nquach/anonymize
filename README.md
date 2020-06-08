@@ -104,7 +104,7 @@ Place DICOMs to be anonymized in the `/raw_dicoms` folder. The name of the files
 - 'boundingbox' = just applies bounding box
 - 'spectrum_high' = preset for Octave with a normal scanning sector
 - 'spectrum_offaxis' = preset for Octave with tilted scanning sector. 
-Optional flags are `-m` which enables multiprocessing (default is True), and `-s` which sorts dicoms by REDCap ID and prints the first image of the ECHO. Once everything is set up, simply type in 
+Optional flags are `-m` which enables multiprocessing (default is False), and `-s` which sorts dicoms by REDCap ID and prints the first image of the ECHO. Once everything is set up, simply type in 
 ```bash
 $ python anonymize.py --mrn=name_map.csv --phi_loc=top 
 ```

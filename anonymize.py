@@ -101,6 +101,7 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 		Y1 = data[0x0018,0x601E].value
 		X0 = data[0x0018,0x6018].value
 		X1 = data[0x0018,0x601C].value
+		#print(X0, X1, Y0, Y1)
 	except:
 		print("Pixel coordinates are not available!")
 		pass
@@ -111,9 +112,10 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 	mask[Y1:, :] = 0
 	mask[:, X1:] = 0
 
-	###GENERATE 2D MASKS HERE### (im sorry there are lots of magic numbers)
+	###GENERATE 2D MASKS HERE### 
+	#(im sorry there are lots of magic numbers, derived from measurements of the scanning sector)
 	if PHI_loc == 'top': #default for Phillips if there is a banner at the top
-		#crop_pixels = int((60/600)*ds.pixel_array.shape[1]) 
+		crop_pixels = int((60/600)*ds.pixel_array.shape[1]) 
 		mask[:,:crop_pixels] = 0 #Crop the top
 		UpperRight = np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(330*ds.pixel_array.shape[2]/800), dtype=np.uint8)
 		UpperLeft = np.fliplr(np.tri(ds.pixel_array.shape[1], ds.pixel_array.shape[2], int(260*ds.pixel_array.shape[2]/800), dtype=np.uint8))
@@ -151,16 +153,27 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 
 	final_mask = np.ones(ds.pixel_array.shape) #the final mask must be the same 
 	
-	##Expand the 2D mask into 3 or 4 dimensions, then apply to movie##
-	if len(ds.pixel_array.shape) == 4:
-		channel3mask = np.transpose(np.tile(mask, (3,1,1)), (1,2,0)) #transposition required since tile puts channel in axis=0
+	##Makes NFRAME copies of final_mask (2D) and stacks them together to produce a 3D volume
+	#that can be applied to the volume of pixel data by pixel-wise multiplication.##
+
+	#Two potential cases, pixel_array has 4 dimensions (frames, X, Y, RGB channel) or 3 dim (X, Y, channel)
+	#in the 4 dim case, you need to first stack the 2D final_mask 
+	if len(ds.pixel_array.shape) == 4: 
+		#np.tile does the copying and stacking of masks into the channel dim to produce 3D masks
+		#transposition to convert tile output (channel, X, Y)  into (X, Y, channel)
+		channel3mask = np.transpose(np.tile(mask, (3,1,1)), (1,2,0)) 
+
+		#now use np.tile to copy and stack the 3D masks into 4D array to apply to 4D pixel data
+		#tile converts (X, Y, channels) —> (frames, X, Y, channels), which is the presumed ordering for 4D pixel data
 		final_mask = np.tile(channel3mask, (ds.pixel_array.shape[0],1,1,1))
-		final_mask.astype(np.uint8)
-		newarr = final_mask * ds.pixel_array 
+		final_mask.astype(np.uint8) #conversion to uint8 to avoid warning message
+		newarr = final_mask * ds.pixel_array #apply final 4D mask to 4D pixel data
+	#greyscale case is easier, no need to stack into the channel dim since it doesnt exist
 	elif len(ds.pixel_array.shape) == 3:
+		#np.tile converts (X, Y) —> (frames, X, Y)
 		final_mask = np.tile(mask, (ds.pixel_array.shape[0],1,1))
-		final_mask.astype(np.uint8)
-		newarr = final_mask * ds.pixel_array
+		final_mask.astype(np.uint8) #convert to uint8 to avoid warning message
+		newarr = final_mask * ds.pixel_array #apply 3D mask to 3D pixel data
 	else:
 		print('NOT A TIME SERIES! Skipping...')
 		return

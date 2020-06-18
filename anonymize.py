@@ -1,6 +1,6 @@
 '''
 Created by Nicolas Quach, July 16 2019
-Updated 05/28/20: v1.4 
+Updated 06/17/20: v1.4 
 
 Script to anonymize DICOM files. Scrubs metadata of private health information
 and blacks out the top banner containing the patient's name/information.
@@ -89,7 +89,7 @@ def anonymize(ds, anon_path, redcap, PHI_loc = 'top'):
 	ds.EthnicGroup = 'NA'
 	ds.PatientTelephoneNumbers = 'NA'
 	ds.OtherPatientIDs = 'NA'
-	#Note that ds.pixel_array has shape (frames, rows, cols, channel), though channels is option
+	#Note that ds.pixel_array has shape (frames, rows, cols, channel), though channels is optional
 	#ds.pixel_array has type uint8. Typecast accordingly!
 	mask = np.ones(ds.pixel_array.shape[1:3], dtype=np.uint8)
 
@@ -194,6 +194,7 @@ def anonymize_all(filename, PHI_loc, name_dict):
 
 	if ds.file_meta.TransferSyntaxUID.is_compressed is True:
 		ds.decompress()
+		ds.PhotometricInterpretation = 'RGB'  #Ensures that U/S data is read as RGB, important for pydicom version compatibility
 
 	MRN = ds.PatientID
 	MRN = MRN.strip()

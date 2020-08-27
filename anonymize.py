@@ -190,11 +190,10 @@ def anonymize_all(filename, PHI_loc, name_dict):
 	dcm_direc = os.path.join(root_direc, 'raw_dicoms')
 	anon_direc = os.path.join(root_direc, 'anonymized_dicoms')
 	ds = dcm.dcmread(os.path.join(dcm_direc, filename))
-
+	ds.PhotometricInterpretation = 'RGB'  #Ensures that U/S data is read as RGB, important for pydicom version compatibility regardless of compression
 
 	if ds.file_meta.TransferSyntaxUID.is_compressed is True:
 		ds.decompress()
-		ds.PhotometricInterpretation = 'RGB'  #Ensures that U/S data is read as RGB, important for pydicom version compatibility
 
 	MRN = ds.PatientID
 	MRN = MRN.strip()

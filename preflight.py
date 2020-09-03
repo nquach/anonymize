@@ -13,7 +13,7 @@ from shutil import move
 import argparse
 import random
 
-def preflight_checks(rawflag,verbose):
+def preflight_checks(rawflag,verbose,framerate):
 	if rawflag:
 		print('Checking anonymized files...')
 	else:
@@ -46,6 +46,18 @@ def preflight_checks(rawflag,verbose):
 			print(ds)
 		else:
 			print(ds.PatientID)
+			#print(ds.SequenceOfUltrasoundRegions[0].RegionLocationMaxY1)
+
+		if framerate:
+			if "CineRate" in ds:
+				print("FPS is:", ds.CineRate)
+			elif "FrameTime" in ds:
+				print("FPS is:", 1000/ds.FrameTime)
+			elif "FrameTimeVector" in ds:
+				print("FPS is:", ds.FrameTimeVector[1])
+			else:
+				print("No FPS")
+
 
 ###################################################
 
@@ -62,8 +74,9 @@ if __name__ == '__main__':
 
 	parser.add_argument("-r", "--raw_dicom_check", action='store_false', help = "raw_dicom preflight_checks (off by default)")
 	parser.add_argument("-v", "--verbose", action='store_true', help = "Print full DICOM tag list (off by default)")
+	parser.add_argument("-f", "--framerate", action='store_true', help = "Print frame rate")
 
 	args = vars(parser.parse_args())
 	#print(args)
 
-	preflight_checks(args['raw_dicom_check'],args['verbose'])
+	preflight_checks(args['raw_dicom_check'],args['verbose'],args['framerate'])
